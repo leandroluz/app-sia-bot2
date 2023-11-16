@@ -1,0 +1,7 @@
+Bibliotecas PIP usadas no projeto
+
+pip install firebird-driver pandas openpyxl
+pip install fdb
+pip install sqlalchemy-firebird
+pip install sqlalchemy-firebird-fdb
+pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
