@@ -1,87 +1,88 @@
+# blibliotecas firebird e pandas 
 import fdb
 import pandas as pd
 
 
+# blibliotecas google
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
-import pandas as pd
-from googleapiclient.discovery import build
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-import pickle
-import os
+def criar_planilha_google(df, nome_planilha):
 
-# Função para criar uma planilha no Google Sheets e preencher com dados do DataFrame
-def exportar_para_google_sheets(df, sheet_title):
-    # Caminho para o arquivo de credenciais
-    CREDENTIALS_FILE = 'credencial/botpegii-gkwg-c7c6829555ec.json'
+    # Define os escopos
+    scope = [
+        "https://spreadsheets.google.com/feeds", 
+        "https://www.googleapis.com/auth/drive"
+    ]
 
-    # Escopos necessários
-    SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+    # Carrega as credenciais da conta de serviço
+    credentials = ServiceAccountCredentials.from_json_keyfile_name('integra-sia-14460c816ae0.json', scope)
 
-    creds = None
-    # O arquivo token.pickle armazena os tokens de acesso e atualização do usuário, e é
-    # criado automaticamente quando o fluxo de autorização é concluído pela primeira vez.
-    if os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
-            creds = pickle.load(token)
+    # Autentica e cria um cliente gspread
+    client = gspread.authorize(credentials)
 
-    # Se não existirem credenciais válidas disponíveis, faz o usuário se logar.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
-            creds = flow.run_local_server(port=0)
-        # Salva as credenciais para a próxima execução
-        with open('token.pickle', 'wb') as token:
-            pickle.dump(creds, token)
+    # Abre uma planilha existente ou cria uma nova
+    spreadsheet = client.open("sia-sentenciados") # Substitua pelo nome da sua planilha
+    sheet = spreadsheet.sheet1  # Assume que você está trabalhando com a primeira aba
 
-    service = build('sheets', 'v4', credentials=creds)
+    # Adiciona informações em colunas específicas
+    # Suponha que você queira adicionar um nome na coluna A e uma idade na coluna B
+    nome = "Leandro Luz"
+    idade = 30
 
-    # Cria uma nova planilha
-    spreadsheet = {
-        'properties': {
-            'title': sheet_title
-        }
-    }
-    spreadsheet = service.spreadsheets().create(body=spreadsheet,
-                                                fields='spreadsheetId').execute()
-    spreadsheet_id = spreadsheet.get('spreadsheetId')
+    # Adiciona os dados na próxima linha vazia
+    proxima_linha = len(sheet.get_all_values()) + 1  # Calcula a próxima linha vazia
+    sheet.update_cell(proxima_linha, 1, nome)  # Coluna A
+    sheet.update_cell(proxima_linha, 2, idade)  # Coluna B
 
-    # Converte o DataFrame em uma lista de listas para o Google Sheets
-    values = [df.columns.values.tolist()] + df.values.tolist()
 
-    # Preenche a planilha com os dados do DataFrame
-    body = {
-        'values': values
-    }
-    service.spreadsheets().values().update(
-        spreadsheetId=spreadsheet_id, range='A1',
-        valueInputOption='RAW', body=body).execute()
-
-    print(f'Planilha criada com sucesso: {spreadsheet_id}')
+    # Compartilha a planilha com sua conta pessoal do Google
+    email_pessoal = "tic.p2guarei@gmail.com"  # Substitua pelo seu e-mail
+    spreadsheet.share(email_pessoal, perm_type='user', role='writer')
+    print("Planilha enviada ao google com sucesso!")
 
 
 
+def pega_dados_sia(sql):
+
+    # Configurações da conexão com o banco de dados Firebird
+    firebird_host = '172.16.0.2'    # ou o IP do servidor onde o banco de dados está
+    firebird_db = '/home/sia/banco/dbsia.fdb'
+    firebird_user = 'SYSDBA'
+    firebird_password = 'hiper768WaupdatE'
+
+    # Conectar ao banco de dados
+    con = fdb.connect(
+        host=firebird_host,
+        database=firebird_db,
+        user=firebird_user,
+        password=firebird_password,
+        charset='ISO8859_1'  # ajuste para a codificação apropriada 
+    )
+
+    # Executar a consulta Sentenciados e armazenar o resultado em um DataFrame do Pandas
+    try:
+        cursor = con.cursor()
+        cursor.execute(sql_sentenciados)
+        rows = cursor.fetchall()
+
+        # Define os nomes das colunas como os nomes dos campos retornados pela consulta
+        columns = [column[0] for column in cursor.description]
+
+        # Cria um DataFrame com os resultados
+        df = pd.DataFrame(rows, columns=columns)
+        return df
+    
+    except Exception as e:
+        print(f'Ocorreu um erro: {e}')
+    finally:
+        # Fechar a conexão com o banco de dados
+        if con:
+            con.close()
+    
 
 
 
-
-# Configurações da conexão com o banco de dados Firebird
-firebird_host = '172.16.0.2'    # ou o IP do servidor onde o banco de dados está
-firebird_db = '/home/sia/banco/dbsia.fdb'
-firebird_user = 'SYSDBA'
-firebird_password = 'hiper768WaupdatE'
-
-# Conectar ao banco de dados
-con = fdb.connect(
-    host=firebird_host,
-    database=firebird_db,
-    user=firebird_user,
-    password=firebird_password,
-    charset='ISO8859_1'  # ajuste para a codificação apropriada 
-)
 
 # Consulta SQL 
 sql_sentenciados = """
@@ -164,49 +165,10 @@ SELECT
 """
 
 
+dados = pega_dados_sia(sql_sentenciados)
 
+criar_planilha_google(dados, "sentenciadosnovo")
 
-# Executar a consulta Sentenciados e armazenar o resultado em um DataFrame do Pandas
-try:
-    cursor = con.cursor()
-    cursor.execute(sql_sentenciados)
-    rows = cursor.fetchall()
-
-    # Define os nomes das colunas como os nomes dos campos retornados pela consulta
-    columns = [column[0] for column in cursor.description]
-
-    # Cria um DataFrame com os resultados
-    df = pd.DataFrame(rows, columns=columns)
-
-    # Exportar para Google Sheets
-    exportar_para_google_sheets(df, 'sentenciados')
-    
-
-except Exception as e:
-    print(f'Ocorreu um erro: {e}')
-
-
-# Executar a consulta Visitantes e armazenar o resultado em um DataFrame do Pandas
-try:
-    cursor = con.cursor()
-    cursor.execute(sql_visitantes)
-    rows = cursor.fetchall()
-
-    # Define os nomes das colunas como os nomes dos campos retornados pela consulta
-    columns = [column[0] for column in cursor.description]
-
-    # Cria um DataFrame com os resultados
-    df = pd.DataFrame(rows, columns=columns)
-
-    # Exportar para Google Sheets
-    exportar_para_google_sheets(df, 'visitantes')
-
-except Exception as e:
-    print(f'Ocorreu um erro: {e}')
-finally:
-    # Fechar a conexão com o banco de dados
-    if con:
-        con.close()
 
 
 
