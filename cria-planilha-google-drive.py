@@ -11,8 +11,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 def criar_planilha_google(df, nome_planilha):
 
-    nome_planilha = "sentenciados-sia"
-
+    print( nome_planilha)
+    exit()
     # Define os escopos
     scope = [
         "https://spreadsheets.google.com/feeds", 

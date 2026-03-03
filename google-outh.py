@@ -32,5 +32,5 @@ def criar_planilha_google(df, nome_planilha):
 
 
     # Compartilha a planilha com sua conta pessoal do Google
-    email_pessoal = "tic.p2guarei@gmail.com"  # Substitua pelo seu e-mail
+    email_pessoal = "leandroferreiraluz@gmail.com"  # Substitua pelo seu e-mail
     spreadsheet.share(email_pessoal, perm_type='user', role='writer')

@@ -7,7 +7,10 @@ import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-def criar_planilha_google(df, nome_planilha):
+def criar_planilha_google(df):
+
+    # Converte todas as colunas do DataFrame para string, isso vai garantir que todos os dados sejam serializáveis
+    df = df.map(str)
 
     # Define os escopos
     scope = [
@@ -15,31 +18,36 @@ def criar_planilha_google(df, nome_planilha):
         "https://www.googleapis.com/auth/drive"
     ]
 
-    # Carrega as credenciais da conta de serviço
+    # Carrega as credenciais da conta de serviço do Google
     credentials = ServiceAccountCredentials.from_json_keyfile_name('integra-sia-14460c816ae0.json', scope)
+    print("Autenticado no Google Docs com sucesso!")
+
 
     # Autentica e cria um cliente gspread
     client = gspread.authorize(credentials)
 
     # Abre uma planilha existente ou cria uma nova
-    spreadsheet = client.open("sia-sentenciados") # Substitua pelo nome da sua planilha
+    spreadsheet = client.open("sia-sentenciados")  # Substitua pelo nome da sua planilha
     sheet = spreadsheet.sheet1  # Assume que você está trabalhando com a primeira aba
+    print("Planilha sentenciados-sia aberta!")
 
-    # Adiciona informações em colunas específicas
-    # Suponha que você queira adicionar um nome na coluna A e uma idade na coluna B
-    nome = "Leandro Luz"
-    idade = 30
+    # Limpa todo o conteúdo da planilha
+    sheet.clear()
+    print("Dados da planilha sentenciados-sia apagados!")
 
-    # Adiciona os dados na próxima linha vazia
-    proxima_linha = len(sheet.get_all_values()) + 1  # Calcula a próxima linha vazia
-    sheet.update_cell(proxima_linha, 1, nome)  # Coluna A
-    sheet.update_cell(proxima_linha, 2, idade)  # Coluna B
+    # Converte o DataFrame para uma lista de listas
+    rows = df.values.tolist()
 
+    # Inclui os cabeçalhos do DataFrame
+    rows.insert(0, df.columns.to_list())
+
+    # Atualiza a planilha com os novos dados
+    sheet.update('A1', rows)  # Atualiza começando da célula A1
 
     # Compartilha a planilha com sua conta pessoal do Google
     email_pessoal = "tic.p2guarei@gmail.com"  # Substitua pelo seu e-mail
     spreadsheet.share(email_pessoal, perm_type='user', role='writer')
-    print("Planilha enviada ao google com sucesso!")
+    print("Planilha atualizada no google com sucesso!")
 
 
 
@@ -89,16 +97,16 @@ sql_sentenciados = """
 SELECT 
     d.det_matricula, 
     d.det_nome, 
-    d.det_matricula || '-' || COALESCE(d.det_digito, '') AS matricula_digito,
-    i.inc_datainclusao, 
-    i.inc_procedencia, 
-    i.inc_raio, 
-    i.inc_cela, 
-    p.nome as nome_pavilhao,
-    r.tipo AS regime, 
-    d.det_condenado, 
-    p.seguro, 
-    p.disciplinar
+    ---d.det_matricula || '-' || COALESCE(d.det_digito, '') AS matricula_digito,
+    ---i.inc_datainclusao, 
+    ---i.inc_procedencia, 
+    ---i.inc_raio, 
+    ---i.inc_cela, 
+    p.nome as nome_pavilhao
+    ---r.tipo AS regime, 
+    ---d.det_condenado, 
+    --p.seguro, 
+    --p.disciplinar
 FROM 
     detentos d
 JOIN 
@@ -110,6 +118,8 @@ JOIN
 LEFT JOIN 
     pavilhao p ON (p.id = i.inc_raio)
 WHERE (i.inc_exclusao=0) 
+AND (i.inc_raio IS NOT NULL)
+AND (i.inc_cela IS NOT NULL)
 AND 
     (tipo_inc.transito_comum ='NÃO') 
 AND 
@@ -120,54 +130,10 @@ ORDER BY
 """
 
 
-# SQL Visitantes Ativos
-sql_visitantes = """
-SELECT
-    dv.dvi_id,
-    v.vis_id,
-    dv.dvi_visita,
-    dv.dvi_parentesco,
-    dv.dvi_status,
-    v.vis_nome,
-    v.vis_cpf,
-    v.vis_rg
-FROM 
-    detentovisita dv
-JOIN 
-    visitas v ON (v.vis_id = dv.dvi_id)
-WHERE
-    dv.dvi_status != 'EXCLUÍDO(A)'
-
-"""
-sql_visitantes2 = """
-SELECT 
-    v.vis_id, 
-    v.vis_nome, 
-    v.vis_rg, 
-    v.vis_orgao, 
-    v.vis_datanascimento,
-    (case when (extract(month from CURRENT_DATE) < extract(month from v.vis_datanascimento) 
-    or
-    (extract(month from v.vis_datanascimento) = extract(month from CURRENT_DATE) and extract(day from CURRENT_DATE) < extract(day from v.vis_datanascimento))) then
-    extract(YEAR from CURRENT_DATE) - extract(YEAR from v.vis_datanascimento) - 1
-    else extract(YEAR from CURRENT_DATE) - extract(YEAR from v.vis_datanascimento) end) as vis_idade,
-    v.vis_emancipado, v.vis_sexo, v.vis_endereco, v.vis_bairro, v.vis_cidade, v.vis_celular,
-    v.vis_telefone, v.vis_datacadastro, v.vis_dataalteracao, dv.dvi_id, 
-    dv.dvi_data, dv.dvi_parentesco, dv.dvi_tipovisita, dv.dvi_status, 
-    v.vis_parlatorio, v.vis_obs, v.vis_endereco_st, v.vis_responsavel, 
-    v.vis_vencimento, v.vis_endereco_venc
-    FROM visitas v
-    JOIN detentovisita dv ON (dv.dvi_visita=v.vis_id)
-    JOIN detentos d ON (d.det_matricula=dv.dvi_matricula)
-    WHERE (dv.dvi_matricula=:pmatricula)
-    ORDER BY v.vis_nome ASC
-
-"""
-
-
 dados = pega_dados_sia(sql_sentenciados)
 
-criar_planilha_google(dados, "sentenciadosnovo")
+criar_planilha_google(dados)
+
 
 
 
