@@ -1,0 +1,10 @@
+services:
+  app-sia-bot:
+    build: .
+    container_name: app-sia-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./credencial:/app/credencial:ro
+    command: sh -c "python atualiza_sentenciados_p2.py && python atualiza_visitantes_p2.py"
