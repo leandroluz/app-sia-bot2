@@ -6,6 +6,25 @@ import pandas as pd
 from oauth2client.service_account import ServiceAccountCredentials
 
 
+def load_env_file(path=".env"):
+    if not os.path.exists(path):
+        return
+    with open(path, "r", encoding="utf-8") as env_file:
+        for raw_line in env_file:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip())
+
+
+def get_required_env(key):
+    value = os.getenv(key)
+    if not value:
+        raise RuntimeError(f"Variavel de ambiente obrigatoria ausente: {key}. Configure no arquivo .env.")
+    return value
+
+
 def criar_planilha_google(df):
     df = df.map(str)
 
@@ -18,22 +37,23 @@ def criar_planilha_google(df):
     credentials = ServiceAccountCredentials.from_json_keyfile_name(google_credentials_file, scope)
     client = gspread.authorize(credentials)
 
-    spreadsheet = client.open_by_key(os.environ["VISITANTES_PLANILHA_ID"])
-    sheet = spreadsheet.get_worksheet_by_id(int(os.environ["VISITANTES_ABA_ID"]))
+    spreadsheet = client.open_by_key(get_required_env("VISITANTES_PLANILHA_ID"))
+    sheet = spreadsheet.get_worksheet_by_id(int(get_required_env("VISITANTES_ABA_ID")))
 
     sheet.clear()
 
     rows = df.values.tolist()
     rows.insert(0, df.columns.to_list())
-    sheet.update("A1", rows)
+    sheet.update(values=rows, range_name="A1")
+    print(f"Planilha visitantes atualizada com {len(df)} linhas.")
 
 
 def pega_dados_sia(sql):
     con = fdb.connect(
-        host=os.environ["FIREBIRD_HOST"],
-        database=os.environ["FIREBIRD_DB"],
-        user=os.environ["FIREBIRD_USER"],
-        password=os.environ["FIREBIRD_PASSWORD"],
+        host=get_required_env("FIREBIRD_HOST"),
+        database=get_required_env("FIREBIRD_DB"),
+        user=get_required_env("FIREBIRD_USER"),
+        password=get_required_env("FIREBIRD_PASSWORD"),
         charset="ISO8859_1",
     )
 
@@ -55,8 +75,8 @@ WITH detentos_atuais AS (
     WHERE i.inc_exclusao = 0
       AND i.inc_raio IS NOT NULL
       AND i.inc_cela IS NOT NULL
-      AND tipo_inc.transito_comum = 'NAO'
-      AND tipo_inc.transito_provisorio = 'NAO'
+      AND UPPER(TRIM(tipo_inc.transito_comum)) STARTING WITH 'N'
+      AND UPPER(TRIM(tipo_inc.transito_provisorio)) STARTING WITH 'N'
 )
 SELECT DISTINCT
     v.vis_cpf AS CPF,
@@ -70,6 +90,9 @@ ORDER BY NOME
 
 
 if __name__ == "__main__":
+    load_env_file()
     dados = pega_dados_sia(sql_visitantes)
+    print(f"Consulta visitantes retornou {len(dados)} linhas.")
     criar_planilha_google(dados)
+
 
