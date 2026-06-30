@@ -1,5 +1,4 @@
 import os
-
 import fdb
 import gspread
 import pandas as pd
@@ -25,8 +24,17 @@ def get_required_env(key):
     return value
 
 
+def format_date_columns(df):
+    for col in df.columns:
+        converted = pd.to_datetime(df[col], errors="coerce", dayfirst=True)
+        if converted.notna().any():
+            df[col] = converted.dt.strftime("%d/%m/%Y").where(converted.notna(), "")
+    return df
+
+
 def criar_planilha_google(df):
-    df = df.map(str)
+    df = df.fillna("")
+    df = df.astype(str)
 
     scope = [
         "https://spreadsheets.google.com/feeds",
@@ -81,7 +89,9 @@ WITH detentos_atuais AS (
 SELECT DISTINCT
     v.vis_cpf AS CPF,
     v.vis_nome AS NOME,
-    dv.dvi_status AS STATUS
+    dv.dvi_status AS STATUS,
+    v.vis_vencimento AS VENCIMENTO,
+    v.vis_datanascimento AS NASCIMENTO
 FROM detentovisita dv
 JOIN visitas v ON (v.vis_id = dv.dvi_visita)
 JOIN detentos_atuais da ON (da.inc_matricula = dv.dvi_matricula)
@@ -92,6 +102,7 @@ ORDER BY NOME
 if __name__ == "__main__":
     load_env_file()
     dados = pega_dados_sia(sql_visitantes)
+    dados = format_date_columns(dados)
     print(f"Consulta visitantes retornou {len(dados)} linhas.")
     criar_planilha_google(dados)
 
