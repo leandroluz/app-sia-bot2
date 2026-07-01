@@ -29,6 +29,11 @@ def format_date_columns(df):
         converted = pd.to_datetime(df[col], errors="coerce", dayfirst=True)
         if converted.notna().any():
             df[col] = converted.dt.strftime("%d/%m/%Y").where(converted.notna(), "")
+
+    if "CPF" in df.columns:
+        df["CPF"] = df["CPF"].astype(str).str.replace(r"[^\d]", "", regex=True)
+        df.loc[df["CPF"].str.lower() == "nan", "CPF"] = ""
+
     return df
 
 
