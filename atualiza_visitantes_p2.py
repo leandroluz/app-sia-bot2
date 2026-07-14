@@ -2,6 +2,7 @@ import os
 import fdb
 import gspread
 import pandas as pd
+from google.auth.exceptions import RefreshError
 from google.oauth2 import service_account as google_service_account
 
 
@@ -47,13 +48,17 @@ def criar_planilha_google(df):
     ]
 
     google_credentials_file = os.getenv("GOOGLE_CREDENTIALS_FILE", "credencial/google-service-account.json")
-    credentials = google_service_account.Credentials.from_service_account_file(
-        google_credentials_file,
-        scopes=scope,
-    )
-    client = gspread.authorize(credentials)
-
-    spreadsheet = client.open_by_key(get_required_env("VISITANTES_PLANILHA_ID"))
+    try:
+        credentials = google_service_account.Credentials.from_service_account_file(
+            google_credentials_file,
+            scopes=scope,
+        )
+        client = gspread.authorize(credentials)
+        spreadsheet = client.open_by_key(get_required_env("VISITANTES_PLANILHA_ID"))
+    except RefreshError as exc:
+        raise RuntimeError(
+            "Falha na autenticação com o Google. Gere um novo JSON de service account e compartilhe a planilha com o e-mail do service account."
+        ) from exc
     sheet = spreadsheet.get_worksheet_by_id(int(get_required_env("VISITANTES_ABA_ID")))
 
     sheet.clear()
