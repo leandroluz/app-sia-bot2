@@ -2,7 +2,7 @@ import os
 import fdb
 import gspread
 import pandas as pd
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2 import service_account as google_service_account
 
 
 def load_env_file(path=".env"):
@@ -47,7 +47,10 @@ def criar_planilha_google(df):
     ]
 
     google_credentials_file = os.getenv("GOOGLE_CREDENTIALS_FILE", "credencial/google-service-account.json")
-    credentials = ServiceAccountCredentials.from_json_keyfile_name(google_credentials_file, scope)
+    credentials = google_service_account.Credentials.from_service_account_file(
+        google_credentials_file,
+        scopes=scope,
+    )
     client = gspread.authorize(credentials)
 
     spreadsheet = client.open_by_key(get_required_env("VISITANTES_PLANILHA_ID"))
