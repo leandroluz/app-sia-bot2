@@ -1,0 +1,10 @@
+[Unit]
+Description=App SIA Bot scheduled jobs
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/app-sia-bot
+ExecStart=/bin/bash /opt/app-sia-bot/run_jobs.sh
+User=root
+Environment=PYTHONUNBUFFERED=1

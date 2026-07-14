@@ -1,0 +1,9 @@
+[Unit]
+Description=Run app-sia-bot every hour
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target

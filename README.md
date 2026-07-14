@@ -57,6 +57,46 @@ docker compose up -d --build
 docker logs -f app-sia-bot
 ```
 
+## Executar a cada 1 hora no Proxmox
+
+Há duas opções para agendamento no host.
+
+### Opção 1: cron
+
+```bash
+crontab -e
+```
+
+Adicione:
+
+```bash
+0 * * * * /bin/bash /caminho/para/app-sia-bot/run_jobs.sh >> /var/log/app-sia-bot.log 2>&1
+```
+
+Antes de usar, dê permissão de execução:
+
+```bash
+chmod +x /caminho/para/app-sia-bot/run_jobs.sh
+```
+
+### Opção 2: systemd timer (mais robusto)
+
+Copie os arquivos para `/etc/systemd/system/`:
+
+```bash
+sudo cp app-sia-bot.service app-sia-bot.timer /etc/systemd/system/
+```
+
+Ative e inicie:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now app-sia-bot.timer
+sudo systemctl status app-sia-bot.timer
+```
+
+Se precisar alterar o caminho do projeto, edite o arquivo `app-sia-bot.service` e troque `/opt/app-sia-bot` pelo caminho real.
+
 ## Observacao importante
 
 Nunca commite arquivos de credenciais (`.env` e JSON da pasta `credencial`).
